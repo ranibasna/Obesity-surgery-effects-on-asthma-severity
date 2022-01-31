@@ -1,0 +1,7 @@
+# Ignore these directories:
+Data/
+Intermediate/ProcessedData
+Intermediate/Reports
+Notebooks/
+# Ignore temporary files:
+*.tmp
