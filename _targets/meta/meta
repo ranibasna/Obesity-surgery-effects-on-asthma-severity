@@ -11,31 +11,34 @@ get_outcome_vars|function|7b5eac9e7fd3ade5||||||||||||||
 num_data|stem|d27e416f538f5581|7a8b1d8df790df89|5b23f813cb95d84c|722401769||t19023.8076283826s|96516711295fbe92|144263|rds|vector|||0.031||
 fixed_smko_data|stem|3976cb8594db80c0|445de162f4e1967e|536a61497b4831f2|-1702846841||t19023.8076323792s|47e0791651b07655|30340|rds|vector|||0.303||
 char_data|stem|1c23c708c539858c|569758cf27eae129|dd7e0371372b2504|1470367886||t19024.5914715135s|3c094601725f5b1c|38219|rds|vector|||3.346||
-fixed_data_OSC|stem|a4ae066e387ac9af|84e4905cd10dc3be|76c345a312921495|-103787976||t19027.4175256817s|7367aa44ec0a8463|457358|rds|vector|||10.763||
 fixed_Hos_data|stem|375d297c2ba011fd|e68e2f69738a037b|204fa4126e6aa088|1623514579||t19027.4175784506s|3ce05e0b39f41c0b|31233|rds|vector|||4.492||
 fixed_em_data|stem|aa6879b1106b3cb4|3c3fd10dce670774|2b578338bb3e4941|-1961082151||t19027.4176323028s|d661b30fdf39d079|28562|rds|vector|||4.574||
-fixed_burst_data|stem|14e0a0cfb06ca549|e5e71e3b70f3d651|4fceeff66d1aac4d|-2133934894||t19027.4179271634s|cf47de8107efa021|52451|rds|vector|||25.37||
-Imputed_data|stem|cadd2a2ba5c84b51|1a24b3970a01fa71|fb23be192b2ea306|1252213640||t19027.4182885682s|0263fc6f7b6f7b37|468260|rds|vector|||30.11|Number of logged events 16|
-report|stem|13e5dafe94d08dde|dd8f5c775d6270ca|a7dc7294a61320f0|-237041703|Intermediate/Reports/miss_data_validation_report.html*Intermediate/Reports/miss_data_validation_report.Rmd|t19027.4184560285s|148b92eee208a94f|1251850|file|vector|||14.482||
 wl|stem|3fad4e636b9111e2|ba6132620428be03|37ca4fa8166d9383|-103387754||t19076.6236399762s|3703cb9bd2946119|140|rds|vector|||4.979||
-BN_processed_data_inc|stem|7ae632df9d1c74c3|57346a562f6a3177|a790defcd69787d6|-1181213028||t19086.7175736675s|0f70ea2f64ba3b9a|32663|rds|vector|||118.071||
-BN_processed_data|stem|46f947dadca9791c|5e5aa10939f1ce2e|a790defcd69787d6|1907893401||t19086.7186300418s|c55598503ddc7ec0|30312|rds|vector|||91.179||
-bl_inc|stem|161b75c1a45bd7f9|6326406cf7df604d|f3bb166388606f0c|-1053531043||t19086.7186443862s|0e56fdca6a5a4864|301|rds|vector|||0.093||
-bl|stem|88d726cb616fd52a|1aa6a3311f71e2a1|d18cf49f2c98123e|1993080575||t19086.7186452083s|815c38d038fbe0c4|289|rds|vector|||0.018||
-BN_bootstrap_inc|stem|6efa28abf17fa6e9|52d4ccac565849cb|fbd1a6c38d6e3065|1718404828||t19086.7188833875s|08b21799d0b69354|918|rds|vector|||20.488|no score is available for ordinal data, disregarding the ordering of the levels.|
-BN_bootstrap|stem|95d89a5920e33d51|2c81812eae393852|9524c1134d7f18b6|861268680||t19086.7190500697s|2f9d4df253affa62|891|rds|vector|||14.381|no score is available for ordinal data, disregarding the ordering of the levels.|
-BN_avg_dag_inc|stem|239e024074b84a8c|ec548b2f7064dbf4|5a07799fd37c7325|1639498062||t19086.7190505163s|82e305458b2ddbd4|725|rds|vector|||0.006||
-BN_avg_dag|stem|a35655a14a31ddef|f7d257df90adaa20|23502fca18408584|-2101095256||t19086.7190509562s|eb769f42e7bbd861|672|rds|vector|||0.002||
-BN_fitted_obj_inc|stem|1ade7f79c34e5a33|320b5181204ba3cd|dec43d72a17463d6|760647017||t19086.7190517684s|2bcef5f30b5e2a32|3733|rds|vector|||0.031||
-BN_fitted_obj|stem|b7aa6c03c26953a5|73f9d5be24fb743c|a85d8dad8cdc507e|1030171182||t19086.7217690016s|0823a82b3ef0d784|3104|rds|vector|||0.065||
 wl_no_wl|stem|d2950354c16b50c0|7a8603b4ab79335e|37ca4fa8166d9383|-276326308||t19087.2440591049s|bce99b594ffe2eda|128|rds|vector|||5.992||
-BN_bootstrap_inc_no_wl|stem|d4ff6c3e03a12a13|dd04a3c678293a33|37be08ca1eaeae1d|-235274351||t19087.2442476623s|4cccc5f6eb0fe2a1|1001|rds|vector|||15.381|no score is available for ordinal data, disregarding the ordering of the levels.|
-BN_avg_dag_inc_no_wl|stem|a9cdc7591c557e27|ea53adad8b196a07|2ba0d6aa7d500e6b|-2142360146||t19087.2442481957s|a82fd942818cd8aa|726|rds|vector|||0.004||
-BN_fitted_obj_inc_no_wl|stem|6f1ad1628254ce5f|75788c27edca6610|eee91768329e8859|745040638||t19087.2442489526s|b5662b6267e0bd68|3661|rds|vector|||0.022||
-get_burst_var|function|357e1fa72f65c5b5||||||||||||||
+fixed_data_OSC|stem|1c19c111d7f3a6e1|84e4905cd10dc3be|084689bf440f0841|-103787976||t19088.3689657651s|50d59d40630b1971|455492|rds|vector|||17.19||
+fixed_burst_data|stem|4add7e971217a686|e5e71e3b70f3d651|7f33d0bfda7e3f5a|-2133934894||t19088.5147742697s|a04df0d932181dab|26599|rds|vector|||46.353||
+BN_processed_data|stem|36165329dcfa8fd7|5e5aa10939f1ce2e|06a6b8b674e96657|1907893401||t19088.5155617902s|77bb5bc738f202bb|32283|rds|vector|||67.75|More than 20 unique training set values are required. Predictors burstDiff were not processed their original values will be used.|
+BN_processed_data_inc|stem|4436f811bf4a34f2|57346a562f6a3177|06a6b8b674e96657|-1181213028||t19088.5165226188s|fe1bb092a135122b|32380|rds|vector|||81.738|More than 20 unique training set values are required. Predictors burstDiff were not processed their original values will be used.|
+Imputed_data|stem|b45b12b3205647a4|1a24b3970a01fa71|df3cd2800afdccf4|1252213640||t19088.5168734961s|20bc7d124051daed|452818|rds|vector|||29.989|Number of logged events 16|
+bl|stem|88d726cb616fd52a|1aa6a3311f71e2a1|a7c27b810030cf51|1993080575||t19088.5168745475s|815c38d038fbe0c4|289|rds|vector|||0.036||
+bl_inc|stem|161b75c1a45bd7f9|6326406cf7df604d|fa9f4b62092473b1|-1053531043||t19088.5168750313s|0e56fdca6a5a4864|301|rds|vector|||0.008||
+report|stem|6239d4415c040ff9|dd8f5c775d6270ca|a86bf0c79fd8cfbd|-237041703|Intermediate/Reports/miss_data_validation_report.html*Intermediate/Reports/miss_data_validation_report.Rmd|t19088.5170173247s|0b4e41ac1af4926e|1252100|file|vector|||12.391||
+BN_bootstrap|stem|22439e67812119f6|2c81812eae393852|889e3f8d053e3654|861268680||t19088.5171815488s|daaa74673d75789e|890|rds|vector|||14.057|no score is available for ordinal data, disregarding the ordering of the levels.|
+BN_bootstrap_inc|stem|6ad09fcc68f31a92|52d4ccac565849cb|ce6086e6577974da|1718404828||t19088.5173594029s|d424e5a95029413a|957|rds|vector|||15.315|no score is available for ordinal data, disregarding the ordering of the levels.|
+BN_bootstrap_inc_no_wl|stem|28471becbdaac062|dd04a3c678293a33|db1b63237cf9f8dc|-235274351||t19088.5175546843s|787745261bd77bea|964|rds|vector|||16.851|no score is available for ordinal data, disregarding the ordering of the levels.|
+BN_avg_dag|stem|0fbfd3671b10ca19|f7d257df90adaa20|31baa187b4db98bf|-2101095256||t19088.5175552876s|8f67e77ddff42b8e|688|rds|vector|||0.007||
+BN_avg_dag_inc|stem|96c5076344541222|ec548b2f7064dbf4|6efe45ab85d437bf|1639498062||t19088.517555862s|b43eaee166fed9bd|741|rds|vector|||0.001||
+BN_avg_dag_inc_no_wl|stem|77457fafbfe4d991|ea53adad8b196a07|0f5a02e6aad70128|-2142360146||t19088.5175565577s|2ebe362f8f73044f|737|rds|vector|||0.001||
+BN_fitted_obj|stem|22bf4be647ab5ad7|73f9d5be24fb743c|b1b60a49fbc59d69|1030171182||t19088.5175579889s|bb5a7e25f2655d7b|3461|rds|vector|||0.055||
+BN_fitted_obj_inc|stem|892eb0c44f39286e|320b5181204ba3cd|a0cea821da51273d|760647017||t19088.5175591296s|f220b62bfc643ad0|3419|rds|vector|||-0.003||
+BN_fitted_obj_inc_no_wl|stem|c4c0e1ac9343d0a7|75788c27edca6610|17d09cc3c184cd50|745040638||t19088.5175599872s|53e7e09a82fff90a|3338|rds|vector|||0.016||
+report_BN|stem|f24cb95827a698c9|08c94d83eec764cb|fc3cd72817156baf|-478050000|Intermediate/Reports/BN_Analysis_Obesity.nb.html*Intermediate/Reports/BN_Analysis_Obesity.Rmd|t19088.5375478737s|90efe7be1f54a57b|2807684|file|vector|||1727.215||
+report_BN_par|stem|7ca1fb8c60f0a51c|e0e853601ab2c28c|96c0a0f46a72881f|-1994634176|Intermediate/Reports/BN_Analysis_Parametrized.nb.html*Intermediate/Reports/BN_Analysis_Parametrized.Rmd|t19088.5399895286s|2b3e397a9dac54a9|2908389|file|vector|||211.004||
+report_BN_par_no_wl|stem|f24d81bdd26130b5|3bd0245cd527a1d6|7b3fcae5744a3f51|-1484930435|Intermediate/Reports/BN_analysis_no_wl.nb.html*Intermediate/Reports/BN_Analysis_Parametrized.Rmd|t19088.5419038073s|6a4b43926582f91d|2892111|file|vector|||165.329||
+get_burst_var|function|7df9c4fccbc64471||||||||||||||
 get_Em_vars|function|9a6bf043254358eb||||||||||||||
 get_cpq_plot_one_var|function|0e4a68a40582b187||||||||||||||
-get_OSC|function|4fb071766ab03119||||||||||||||
+get_OSC|function|9f2963257ac1c7c2||||||||||||||
 binner_hos|function|8c579629daf0aed5||||||||||||||
 sim_validation|function|6ebeffd33ee0fb65||||||||||||||
 inc_em|object|79e070e0f1e2a744||||||||||||||
@@ -53,8 +56,5 @@ get_time_df|function|34308777e7ee5b49||||||||||||||
 plot.network|function|5da9d881164026e0||||||||||||||
 get_BN_processed_data|function|e797e0344c6e516f||||||||||||||
 get_smok_data|function|5c43bb7d5cd4fab6||||||||||||||
-ready_data|stem|8c8cf799bc9fcf2e|433362da790f31ee|d047f497ffe62ef6|-440303635||t19087.2634375973s|586f8ae3aa05b0ee|233552|rds|vector|||5.815||
-ready_Data|stem|4ac1eb883db90b0f|fb27da9b2eafd1bf|7ec6c8f488cecd49|2064280176||t19087.2634434228s|a1c456b03adbfbf8|44|rds|vector|||0.43||
-report_BN|stem|aa9e609a901d64bf|08c94d83eec764cb|0839e20b01c8970d|-478050000|Intermediate/Reports/BN_Analysis_Obesity.nb.html*Intermediate/Reports/BN_Analysis_Obesity.Rmd|t19087.2797993448s|d48f8d7e7b03317e|2817020|file|vector|||1413.141||
-report_BN_par|stem|460ae7eddc570c08|e0e853601ab2c28c|87172af467430d03|-1994634176|Intermediate/Reports/BN_Analysis_Parametrized.nb.html*Intermediate/Reports/BN_Analysis_Parametrized.Rmd|t19087.2815094041s|aca09dc83c23754c|2879932|file|vector|||147.777||
-report_BN_par_no_wl|stem|2187dffd75cb5e59|3bd0245cd527a1d6|b62269d512cd4260|-1484930435|Intermediate/Reports/BN_analysis_no_wl.nb.html*Intermediate/Reports/BN_Analysis_Parametrized.Rmd|t19087.2829710595s|e8b2d3eae5fd76e1|2876968|file|vector|||126.194||
+ready_data|stem|282e7c2a5882ca75|548f792e278d3021|b9c3f5569b41bf8a|-440303635||t19088.613045755s|71d6db7b831ea3c5|217605|rds|vector|||9.666||
+ready_Data|stem|4ac1eb883db90b0f|fb27da9b2eafd1bf|eefc5ef3909f2c72|2064280176||t19088.6130531387s|a1c456b03adbfbf8|44|rds|vector|||0.542||

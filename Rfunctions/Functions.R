@@ -88,30 +88,43 @@ get_OSC <- function(raw_data){
   OSC_df_years_df <- OSC_df_years %>% select(id,date_surgery, y1, y2, y_1, y_2, datediff) %>% 
                      mutate(across(cols_to_check, ~replace(., is.na(.), 0) )) %>% select(- datediff) %>% distinct()
   OSC_df_years_df <- aggregate(. ~ id + date_surgery, data = OSC_df_years_df, FUN=sum) %>% mutate(across(starts_with("y"), ~ if_else( . > 1825, 1,0), .names = "maint_{.col}"))
+  # we take a random patient and check that the calculation is vald
   sample_rand_id <-  OSC_df_years_df %>% filter(maint_y1 == 1) %>% sample_n(1) %>% pull(id) 
-  if(aggregate(. ~ id , mydata %>% filter(id == sample_rand_id) %>% select(id, prednisolone), FUN=sum)$prednisolone > 1825){
+  if(aggregate(. ~ id , raw_data %>% filter(id == sample_rand_id) %>% select(id, date_dispensation, prednisolone, date_surgery) %>% filter(( as.numeric(date_surgery) - as.numeric(date_dispensation)) %in% (1:365)), FUN=sum)$prednisolone > 1825){
     return(list(OSC_df_years_df, OSC_df_years))  
   } 
   else{
-    stope( paste0("there are some proble with the following id", sample_rand_id))
+    stop( paste0("there are some proble with the following id", sample_rand_id))
   }
 }
 
 get_burst_var <- function(raw_data, OSC_df_years_data){
   
-  df_burst <- OSC_df_years_data %>% select(- c( y_3)) %>% dplyr::distinct()  %>% group_by(id) %>% arrange(date_dispensation, .by_group = TRUE)  %>% 
+  df_burst <- OSC_df_years_data %>% select(- c( y_3)) %>% dplyr::distinct() %>% group_by(id) %>% arrange(date_dispensation, .by_group = TRUE) %>% 
     mutate(diffDate = difftime(date_dispensation, lag(date_dispensation,1), unit = 'day')) %>% 
     mutate( duration = lead(diffDate, order_by = id)) %>% select(- diffDate) %>%
-    mutate(across(starts_with("y"), ~ if_else( . < 1825, 1,0), .names = "burstPck_{.col}")) %>% 
-    mutate(across(starts_with("burst"), ~ case_when(duration < 14 ~ . -1, TRUE ~ .)))
+    mutate(burstPck_y1 = case_when(round(y1) %in% (1:1825) ~ 1, TRUE ~ 0)) %>% 
+    mutate(burstPck_y2 = case_when(round(y2) %in% (1:1825) ~ 1, TRUE ~ 0)) %>% 
+    mutate(burstPck_y_1 = case_when(round(y_1) %in% (1:1825) ~ 1, TRUE ~ 0)) %>%
+    mutate(burstPck_y_2 = case_when(round(y_2) %in% (1:1825) ~ 1, TRUE ~ 0)) %>% 
+    mutate(across(starts_with("burstPck_y1"), ~ case_when(y1 %in% (1:1825)  & duration < 14 ~ . -1, TRUE ~ .))) %>% # this is instructed by Hannu so that we do not count the burst twice if the differene between two doses is less then 14 days
+    mutate(across(starts_with("burstPck_y2"), ~ case_when(y2 %in% (1:1825)  & duration < 14 ~ . -1, TRUE ~ .))) %>% 
+    mutate(across(starts_with("burstPck_y_1"), ~ case_when(y_1 %in% (1:1825)  & duration < 14 ~ . -1, TRUE ~ .))) %>% 
+    mutate(across(starts_with("burstPck_y_2"), ~ case_when(y_2 %in% (1:1825)  & duration < 14 ~ . -1, TRUE ~ .))) 
   
-  
-  df_burst_adjusted <- df_burst %>% select(- c(packages, date_dispensation, datediff, y1, y2, y_1, y_2, prednisolone, duration)) %>% 
-    mutate(across(starts_with("bur"), ~replace(., is.na(.), 0) ))
-  
-  df_burst_agg <- aggregate(. ~ id + date_surgery, data = df_burst_adjusted, FUN=sum) 
-  
-  return(df_burst_agg)
+  df_burst_pre <- df_burst  %>% select(-c(datediff, prednisolone, duration, date_surgery, packages, date_dispensation)) %>% select(- starts_with("y"))
+  df_burst_agg <- aggregate(. ~ id , data = df_burst_pre, FUN=sum) 
+  # df_burst_adjusted <- df_burst %>% select(- c(packages, date_dispensation, datediff, y1, y2, y_1, y_2, prednisolone, duration)) %>% 
+  # mutate(across(starts_with("bur"), ~replace(., is.na(.), 0) ))
+  # we take a random patient and check that the calculation is vald
+  sample_rand_id <- df_burst_agg %>% filter(burstPck_y1 > 1) %>% sample_n(1) %>% pull(id)
+  validating_filtered_df <- raw_data %>% filter(id == sample_rand_id) %>% select(id, date_dispensation, prednisolone, date_surgery) %>% filter(( as.numeric(date_surgery) - as.numeric(date_dispensation)) %in% (1:365))
+  if(round(aggregate(. ~ id, validating_filtered_df, FUN=sum)$prednisolone) %in% (1:1825)) {
+    return(df_burst_agg)  
+  }else{
+    stop( paste0("there are some proble with the following id ", sample_rand_id))
+  }
+  return(df_burst_agg)  
 }
   ## Emergency outcome var ----
  

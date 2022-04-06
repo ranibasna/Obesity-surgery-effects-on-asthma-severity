@@ -30,7 +30,7 @@ list(
   # get charechter data
   tar_target(char_data, raw_data_date %>% select(where(is.character) | id) %>%  distinct() %>% select(-c(starts_with(c("smok","drug")))) %>% mutate(across(everything(), ~ na_if(.,"")))),
   # bind data
-  tar_target(ready_data, fixed_data_OSC[[1]] %>%  inner_join(fixed_burst_data, by=c("id", "date_surgery")) %>% 
+  tar_target(ready_data, fixed_data_OSC[[1]] %>%  inner_join(fixed_burst_data, by=c("id")) %>% 
                inner_join(fixed_em_data, by=c("id", "date_surgery")) %>% 
                inner_join(fixed_Hos_data, by=c("id", "date_surgery")) %>% 
                inner_join(fixed_smko_data, by="id") %>% 
