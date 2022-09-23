@@ -163,28 +163,81 @@ get_Hos_vars <- function(raw_data){
 
 }
 
+# plot patients ----
+patient_follow_vis <- function(first_cut, second_cut, status_var){
+  
+  # status_var <- enquo(status_var)
+  status_var <- sym(status_var)
+  
+  timeVis_df[first_cut:second_cut,] %>%
+    
+    # ploting
+    ggplot(aes(x = newID, y = observedMonths, fill = dose_cat)) +
+    geom_segment(aes(x = newID, xend = newID, y = 0, yend = lastMonth - 0.5), lty = 3) +
+    geom_tile(width = 0.5) +
+    scale_fill_manual("prednisolone level", values = c("#7D3A2C", "#AA3B2F", "#D36446")) +
+    geom_linerange(mapping=aes(x=newID, ymin=monthSurg+0.3, ymax=monthSurg-0.3), width=0.2, size=1, color="blue") +
+    geom_point(aes(x = newID, y = lastMonth - 0.5, shape = event)) +
+    scale_shape_manual("Event", values = c(15, 5), labels = c("Death", "Alive", "")) +
+    # geom_point(aes(x = newID, y = -3, color = UQ(status_var))) +
+    geom_point(aes(x = newID, y = -3, color = !!status_var)) +
+    scale_color_brewer(palette="BuPu") +
+    # scale_color_viridis(discrete=TRUE, option="viridis") +
+    # scale_color_manual(UQ(status_var), values = c("steelblue", "lightblue3", "gray30")) +
+    guides(fill = guide_legend(override.aes = list(shape = NA), order = 1)) +
+    coord_flip() +
+    labs(y = "Month", x = "Patient\nNo.") +
+    theme_classic() +
+    theme(axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_text(angle = 0))
+}
+
+# Define a second function
+
+patient_follow_vis_2 <- function(first_cut, second_cut){
+  # status_var <- sym(status_var)
+  
+  timeVis_df_NewId <- timeVis_df  %>% ungroup() %>% select(-id)
+  
+  timeVis_df_NewId[first_cut:second_cut,] %>%
+    mutate_at(vars(newID, dose_cat), factor) %>% group_by(newID) %>% 
+    mutate(month_death = case_when(event == "died" ~ lastMonth, TRUE ~ NA_real_)) %>% ungroup() %>%
+    mutate(newID = fct_rev(fct_reorder(newID, lastMonth))) %>%
+    ggplot(aes(x = observedMonths, y = newID, group = newID, col = dose_cat)) +
+    geom_line() +
+    geom_point(shape = 15) +
+    geom_point(aes(x = month_death, y = newID), col = "black", shape = 4) +
+    theme_bw() + 
+    labs(x = "Months of Follow-Up", y = "Patient ID", col = "prednisolone level", title = "Patient Treatment Timeline", subtitle = "x indicates month of patient death") +
+    # edit legend box and make patient ids small
+    theme(axis.text.y = element_text(size=6), legend.position = c(.6, .9), legend.direction = "horizontal", legend.background = element_rect(linetype="solid", colour ="black")) + 
+    # remove extra space around timeline
+    scale_x_continuous(expand=c(0.01,0.01)) + # set the color of the lines and points
+    scale_color_manual(values=c("dodgerblue","firebrick1","deepskyblue4"))
+}
+
 # BN analysis ----
 # dis_data <- discretize(data = data_modeling_dis , method = "hartemink", breaks = 3, ordered = FALSE, ibreaks=60, idisc="quantile")
 ## Preparing the data ----
 
-binner_hos <- function(x) {
+binner_hos <- function(x){
   # x <- cut(x, breaks =  c(-24, -14, -4, 0, 5, 11, 18), include.lowest = TRUE)
   x <- cut(x, breaks =  c(-24, -5, -0.5, 0, 1, 9, 18), include.lowest = TRUE)
   # now return the group number
   as.numeric(x)
 }
 
-binner_em <- function(x) {
+binner_em <- function(x){
   x <- cut(x, breaks =  c(-2,-1, 0, 1, 2), include.lowest = TRUE)
   # now return the group number
   as.numeric(x)
 }
 
-
 inc_hos <- c("verybad", "Bad", "light",  "med", "Better", "Good")
 inc_em <- c("Bad",  "med", "Better", "Good")
 
-get_BN_processed_data <- function(BN_ready_data, Is_change = TRUE, Is_acc = FALSE, Not_burst = TRUE, Not_inclusion = TRUE, discretize_outcome_vars = FALSE, discretize_all_vars_xgb = TRUE){
+get_BN_processed_data <- function(BN_ready_data, Is_change = TRUE, Is_accChange = FALSE, Is_acc_main = FALSE, Not_burst = TRUE, Not_inclusion = TRUE, discretize_outcome_vars = FALSE, discretize_all_vars_xgb = TRUE, Remove_weight_vars=TRUE, CreatNumericalLevels=TRUE){
   mydata_ready_2 <- BN_ready_data %>% mutate(across(where(is.character), factor)) %>%  mutate(across(starts_with(c("bur","hos","em")), as.double)) %>% 
     mutate(across(starts_with(c("charl","R0","maint")), factor)) %>% mutate(across(starts_with(c("wais","age")), as.double))
   
@@ -192,33 +245,82 @@ get_BN_processed_data <- function(BN_ready_data, Is_change = TRUE, Is_acc = FALS
   aux_vars <- c("bleeding_amount", "sleep_apnea", "hypertension", "dyslipidemia", "dyspepsia", "diabetes", "waist", "fp_glucose", "b_hba1c") 
   if(Is_change){
     # y1 is before. and y_1 is after
-    mydata_ready_change <- mydata_ready_2 %>% mutate(Diffy = (abs(y1)- abs(y_1)), hos_Diff = hos_y1 - hos_y_1, emDiff = em_y1 - em_y_1,  burstDiff = burstPck_y1 - burstPck_y_1) 
+    mydata_ready_processed <- mydata_ready_2 %>% mutate(Diffy = (abs(y1)- abs(y_1)), hos_Diff = hos_y1 - hos_y_1, emDiff = em_y1 - em_y_1,  
+                                                 burstDiff = burstPck_y1 - burstPck_y_1) 
+    Y_var <- colnames(mydata_ready_processed %>% select(starts_with("Diffy")))
+    HosVar <- colnames(mydata_ready_processed %>% select(starts_with("hos_D")))
+    EmVar <- colnames(mydata_ready_processed %>% select(starts_with("em_D")))
+    binner_hos <- function(x){
+      x <- cut(x, breaks =  c(-24, -5, -0.5, 0, 1, 9, 18), include.lowest = TRUE)
+      # now return the group number
+      as.numeric(x)
+    }
+    
+    binner_em <- function(x){
+      x <- cut(x, breaks =  c(-2,-1, 0, 1, 2), include.lowest = TRUE)
+      # now return the group number
+      as.numeric(x)
+    }
   }
-  if (Is_acc){
+  if (Is_accChange){
     # adding the accumulation for -2 +2 years
-    mydata_ready_change <- mydata_ready_change %>% mutate(y_acc = ((y1+y2)-(y_1+y_2)), hos_acc = ((hos_y1+hos_y2) - (hos_y_1+hos_y_2)), em_acc = ((em_y1+em_y2) - (em_y_1+em_y_2)),  burst_acc = ((burstPck_y1+ burstPck_y2) - (burstPck_y_1+burstPck_y_2)) )  
+    mydata_ready_processed <- mydata_ready_2 %>% mutate(y_acc = ((y1+y2)-(y_1+y_2)), hos_acc = ((hos_y1+hos_y2) - (hos_y_1+hos_y_2)), 
+                                                 em_acc = ((em_y1+em_y2) - (em_y_1+em_y_2)),  
+                                                 burst_acc = ((burstPck_y1+ burstPck_y2) - (burstPck_y_1+burstPck_y_2)) )  
+    Y_var <- colnames(mydata_ready_processed %>% select(starts_with("y_acc")))
+    HosVar <- colnames(mydata_ready_processed %>% select(starts_with("hos_a")))
+    EmVar <- colnames(mydata_ready_processed %>% select(starts_with("em_acc")))
+  }
+  if(Is_acc_main){
+    # adding the accumulation for -2 +2 years
+    mydata_ready_processed <- mydata_ready_2 %>% mutate(y_acc_b = y1+y2, y_acc_a = y_1+y_2, hos_acc_b = hos_y1+hos_y2, hos_acc_a = hos_y_1+hos_y_2, 
+                                              em_acc_b = em_y1+em_y2, em_acc_a = em_y_1+em_y_2,  
+                                              burst_acc_b = burstPck_y1+ burstPck_y2, burst_acc_a =  burstPck_y_1+burstPck_y_2)
+    
+    Y_var <- colnames(mydata_ready_processed %>% select(starts_with("y_acc")))
+    HosVar <- colnames(mydata_ready_processed %>% select(starts_with("hos_a")))
+    EmVar <- colnames(mydata_ready_processed %>% select(starts_with("em_acc")))
+    #
+    binner_hos <- function(x){
+      x <- cut(x, breaks =  c(0, 1, 4, 8, 11, 19, 36), include.lowest = TRUE)
+      as.numeric(x)
+    }
+    binner_em <- function(x){
+      x <- cut(x, breaks =  c(0, 1, 2, 3, 4), include.lowest = TRUE)
+      as.numeric(x)
+    }
+    inc_hos <- rev(inc_hos)
+    inc_em <- rev(inc_em)
   }
   
   # remove the original osc medication vars
-  mydata_ready_change <- mydata_ready_change %>% select(-c(y1, y_1, y2, y_2, hos_y1, hos_y_1, hos_y2, hos_y_2, em_y1, em_y_1, em_y2, em_y_2, burstPck_y1, burstPck_y_1, burstPck_y2, burstPck_y_2))
+  mydata_ready_processed <- mydata_ready_processed %>% select(-c(y1, y_1, y2, y_2, hos_y1, hos_y_1, hos_y2, hos_y_2, em_y1, em_y_1, em_y2, em_y_2, burstPck_y1, burstPck_y_1, burstPck_y2, burstPck_y_2))
   
+  # set a formula
+  f <- as.formula(paste(HosVar[1], "~ ."))
   # set the recipe
   data_modeling_tran_imp_change_re <- 
-    recipe(hos_Diff ~ ., data = mydata_ready_change) %>% # replacing Diffy with hos_Diff
+    recipes::recipe( formula = f, data = mydata_ready_processed) %>% # replacing Diffy with hos_Diff
     update_role(id, date_surgery, found, missing_death_info, new_role = "ID") %>% 
     update_role(bleeding_amount, sleep_apnea, hypertension, dyslipidemia, dyspepsia, diabetes, waist, fp_glucose, b_hba1c, new_role = "auxiliary_vars") %>% 
     # add_role(starts_with(c("Diff", "hos")), new_role = "numeric outcome feature") %>% 
-    add_role(starts_with(c("Diff", "hos")), new_role = "outcome feature") %>% 
+    # add_role(starts_with(c("Diff", "hos")), new_role = "outcome feature") %>% 
     step_zv(all_predictors()) %>% # remove variables that contain only a single value.
     # step_YeoJohnson(has_role(match = "numeric outcome feature")) %>% 
-    step_YeoJohnson(Diffy) %>% 
+    step_YeoJohnson(all_of(Y_var)) %>% 
     step_impute_bag( c(all_predictors(), has_role(match = "outcome")), impute_with = imp_vars(c(all_predictors(), has_role(match = "auxiliary_vars")))) %>% 
-    step_num2factor(hos_Diff, transform = binner_hos, levels = inc_hos, ordered = TRUE ) %>% 
-    step_num2factor(emDiff, transform = binner_em, levels = inc_em, ordered = TRUE ) 
+    step_num2factor( all_of(HosVar), transform = binner_hos, levels = inc_hos, ordered = TRUE ) %>% 
+    step_num2factor(all_of(EmVar), transform = binner_em, levels = inc_em, ordered = TRUE ) %>% 
+    step_mutate(BMI_6w = bmi - (100*wght_loss6w)*(bmi-25), BMI_1y = bmi - (100*wght_loss1y)*(bmi-25), role = "predictor")
   
+  
+  # if(Is_change){
+  #   data_modeling_tran_imp_change_re <- step_num2factor(recipe = data_modeling_tran_imp_change_re, all_of(HosVar), transform = binner_hos, levels = inc_hos, ordered = TRUE ) %>% 
+  #   step_num2factor(all_of(EmVar), transform = binner_em, levels = inc_em, ordered = TRUE ) 
+  # }
   
   if(discretize_all_vars_xgb){
-    data_modeling_tran_imp_dis_change_re <- step_normalize(recipe = data_modeling_tran_imp_change_re) %>% step_discretize_xgb(all_numeric(), outcome = "hos_Diff") 
+    data_modeling_tran_imp_dis_change_re <- step_normalize(recipe = data_modeling_tran_imp_change_re) %>% step_discretize_xgb(all_numeric(), outcome = paste(HosVar[1])) 
     data_modeling_tran_imp_change_juice <- data_modeling_tran_imp_dis_change_re %>% prep() %>% juice()  
   } else{
     data_modeling_tran_imp_change_juice <- data_modeling_tran_imp_change_re %>% prep() %>% juice()
@@ -235,6 +337,18 @@ get_BN_processed_data <- function(BN_ready_data, Is_change = TRUE, Is_acc = FALS
   if(Not_inclusion){
     data_modeling_tran_imp_change <- data_modeling_tran_imp_change %>% select(- inclusion)
   }
+  if(Remove_weight_vars){
+    data_modeling_tran_imp_change <- data_modeling_tran_imp_change %>% select(- c(wght_loss6w, wght_loss1y))
+  }
+  if(CreatNumericalLevels){
+    oldLevels_b <- sort(unique(data_modeling_tran_imp_change$y_acc_b))
+    newLevels_b <- order(sort(unique(data_modeling_tran_imp_change$y_acc_b)))
+    oldLevels_a <- sort(unique(data_modeling_tran_imp_change$y_acc_a))
+    newLevels_a <- order(sort(unique(data_modeling_tran_imp_change$y_acc_a)))
+    
+    data_modeling_tran_imp_change <- data_modeling_tran_imp_change %>% mutate(y_acc_b = forcats::fct_recode(y_acc_b, !!! setNames(as.character(oldLevels_b), newLevels_b))) %>% 
+      mutate(y_acc_a = forcats::fct_recode(y_acc_a, !!! setNames(as.character(oldLevels_a), newLevels_a)))
+  }
   if(discretize_outcome_vars){
     # data_modeling_tran_imp_change <- data_modeling_tran_imp_change %>% mutate(across(starts_with(c("hos","em")), factor))
     dis_data <- discretize(data = data_modeling_dis , method = "hartemink", breaks = 3, ordered = FALSE, ibreaks=60, idisc="quantile")
@@ -246,7 +360,7 @@ get_BN_processed_data <- function(BN_ready_data, Is_change = TRUE, Is_acc = FALS
 
 get_time_df <- function(ready_data){
     my_clean_time_data <- ready_data %>% mutate(across(starts_with(c("study", "date", "death")) , dmy)) %>% 
-     select(id, date_dispensation, date_surgery, prednisolone, deathdate, inclusion, sex, surgery, packages) %>%
+     select(id, date_dispensation, date_surgery, prednisolone, deathdate, inclusion, sex, surgery, packages, age) %>%
     # Subtract dates of dispensation from the date oof surgery for each patient
     mutate(numberMonth = interval(date_surgery, date_dispensation) %/% months(1)) %>%
     group_by(id) %>%
@@ -260,7 +374,43 @@ get_time_df <- function(ready_data){
     return(my_clean_time_data)
 }
 
-
+get_ITS_data <- function(timeVis_data){
+  intrupted_df <- timeVis_data
+  intrupted_df$NumberPeople <- 1
+  intrupted_df <- intrupted_df %>% ungroup() %>% select(-id) %>% distinct() %>% filter(numberMonth %in% (-48:48)) %>% select(numberMonth, prednisolone, packages, NumberPeople, age, sex) 
+  intrupted_df <- intrupted_df %>% mutate(genderPerc = if_else(sex == "Female", 1, 0)) %>% select(-sex)
+  intrupted_df_agg <- aggregate(.~ numberMonth, intrupted_df, FUN = sum) 
+  intrupted_df_agg  <- intrupted_df_agg %>% mutate(sergury_state = case_when(numberMonth <= 0 ~ "Before surgery", numberMonth > 0 ~ "after surgery"))
+  
+  timeVis_df48_summary <- timeVis_data %>% filter(numberMonth %in% (-48:48)) %>% select(id, date_surgery, deathdate) %>% distinct() %>% 
+    mutate(DeathMonth = interval(date_surgery, deathdate) %/% months(1)) %>%  
+    mutate(DeathMonthCount = if_else(DeathMonth < 49, DeathMonth, 0 )) %>% mutate(DeathMonthCount = tidyr::replace_na(DeathMonthCount, 0)) %>%                                                                  group_by(DeathMonthCount) %>% summarise(DeathNumber = n())
+  #
+  # insert the values of the missing death monthes
+  index_set <- setdiff(intrupted_df_agg$numberMonth[-(1:49)], timeVis_df48_summary$DeathMonthCount)
+  newDf <- timeVis_df48_summary
+  for (i in index_set){
+    newrow <- c(i,0)
+    newDf <- insertRow(newDf, newrow, i)
+  }
+  # we will replace the first number by zero as this reflect the number of people who died in that month after the surgery.
+  newDf$DeathNumber[1] <- 0
+  timeVis_df48_cum <- newDf %>% mutate(cumsum_col = cumsum(DeathNumber))
+  deathMonthCount_vec <- rep(0, 48)
+  deathMonthCount_vec <- append(deathMonthCount_vec, timeVis_df48_cum$cumsum_col)
+  intrupted_df_agg$deathMonthAccCount <- deathMonthCount_vec
+  # adding elapsed time
+  intrupted_df_agg$elapsed_time <- intrupted_df_agg$numberMonth + 49
+  # mean age
+  intrupted_df_agg <- intrupted_df_agg %>% mutate(avg_Age = age/NumberPeople) %>% select(-age)
+  # adding the elapsed time after surgery (this is similar to the ramp variable)
+  ramp <- append(rep(0,49), seq(1,48,1))
+  intrupted_df_agg$timeAfterSurg <- ramp 
+  #
+  intrupted_df_agg <- intrupted_df_agg %>% mutate(step_change = case_when(numberMonth <= 0 ~ 0, numberMonth > 0 ~ 1))
+  intrupted_df_agg <- intrupted_df_agg %>% mutate(predAvg = prednisolone/NumberPeople)
+  return(intrupted_df_agg)
+}
 
 
 drop_vars_df <- function(data_drop, drop_var){
@@ -271,7 +421,7 @@ drop_vars_df <- function(data_drop, drop_var){
 
 ## Blacklist and whightlist ----
 
-get_bl <- function(final_BN_data){
+get_bl <- function(final_BN_data, bmi_var){
   # age 
   bl_f_col_age <- colnames(final_BN_data %>% select(-age))
   bl_age = data.frame("from" = bl_f_col_age, "to" = "age")
@@ -280,7 +430,14 @@ get_bl <- function(final_BN_data){
   bl_gender = data.frame("from" = bl_f_col_gender, "to" = "sex")
   # black listing backwords in time
   bl_smok <- tiers2blacklist(list("smoking","smoking1"))
-  bl_sur_bmi_wl <- tiers2blacklist(list("bmi","surgery","wght_loss6w", "wght_loss1y"))
+  bl_y <- tiers2blacklist(list("y_acc_b", "y_acc_a"))
+  bl_hos <- tiers2blacklist(list("hos_acc_b", "hos_acc_a"))
+  bl_em <- tiers2blacklist(list("em_acc_b", "em_acc_a"))
+  if(bmi_var){
+    bl_sur_bmi_wl <- tiers2blacklist(list("bmi","surgery","BMI_6w", "BMI_1y"))  
+  }else{
+    bl_sur_bmi_wl <- tiers2blacklist(list("bmi","surgery","wght_loss6w", "wght_loss1y"))
+  }
   bl  <- rbind(bl_age, bl_gender, bl_sur_bmi_wl, bl_smok)
   return(bl)
 }
@@ -355,16 +512,16 @@ cpq_effe_modif <- function(.data, vars, outcome, state, model, repeats = 500000)
   # generate character strings for all combinations
   str1 <- ""
   for (i in seq(nrow(combos))) {
-    str1[i] <- paste(combos %>% names(), " = '",
+    str1[i] <- paste(combos %>% names(), " == '",
                      combos[i, ] %>% sapply(as.character), "'",
-                     sep = "", collapse = ", "
+                     sep = "", collapse = "& "
     )
   }
   
   # repeat the string for more than one outcome
   str1 <- rep(str1, times = length(outcome))
-  str1 <- paste("list(", str1, ")", sep = "")
-  
+  # str1 <- paste("list(", str1, ")", sep = "")
+  str1 <- paste("(" ,str1, ")", sep = "")
   # repeat loop for outcome variables (can have more than one outcome)
   all.levels.outcome <- if (any(length(outcome) > 1)) {
     lapply(.data[, (names(.data) %in% outcome)], levels)
@@ -380,19 +537,20 @@ cpq_effe_modif <- function(.data, vars, outcome, state, model, repeats = 500000)
   str3 <- rep(paste("(", outcome, " == '", state, "')", sep = ""), each = length(str1) / length(outcome))
   
   # fit the model
-  fitted <- bn.fit(cextend(model), .data)
+  # fitted <- bn.fit(cextend(model), .data)
+  fitted <- model
   
   # join all elements of string together
-  cmd <- paste("replicate(200,cpquery(fitted, ", str3, ", ", str1, ", method = 'lw', n = ", repeats, "))", sep = "")
-  
+  cmd <- paste("replicate(200,cpquery(fitted, ", str3, ", ", str1, ", method = 'ls', n = ", repeats, "))", sep = "")
+  # cmd <- paste("replicate(200,cpquery(fitted, ", str3, ", ", str1, ", method='lw' n = ", repeats, "))", sep = "")
   prob <- rep(0, length(str1)) # empty vector for probabilities
   q05 <- rep(0,length(str1))
   q975 <- rep(0,length(str1))
   for (i in seq(length(cmd))) {
     prop_vec = eval(parse(text =  cmd[i]))
-    q05[i] = quantile(prop_vec, 0.05)
-    q975[i] = quantile(prop_vec,0.975)
-    prob[i] <- mean(prop_vec)
+    q05[i] = quantile(prop_vec, 0.05, na.rm = TRUE)
+    q975[i] = quantile(prop_vec,0.975, na.rm = TRUE)
+    prob[i] <- mean(prop_vec, na.rm = TRUE)
   } # for each combination of strings, what is the probability of outcome
   res <- cbind(combos, prob, q05, q975)
   
@@ -440,13 +598,27 @@ get_cpq_plot <- function(res_data, effe_modif_vars, original_raw_data, final_dat
   conditions_1 <- purrr::map2(var1Cases, Var1Labels, ~quo( !!var_1_sym == !!.x ~ !!.y))
   conditions_2 <- purrr::map2(var2Cases, Var2Labels, ~quo( !!var_2_sym == !!.x ~ !!.y))
   # mutate the new coloumns
-  res_data <- res_data %>% mutate("{effe_modif_vars[1]}_Cases" := case_when(!!!conditions_1)) %>% mutate("{effe_modif_vars[2]}cases" := case_when(!!!conditions_2))
+  res_data <- res_data %>% mutate("{effe_modif_vars[1]}cases" := case_when(!!!conditions_1)) %>% mutate("{effe_modif_vars[2]}_Cases" := case_when(!!!conditions_2))
   res_colnames <- colnames(res_data)
-  var1 <- sym(res_colnames[grepl("_Cases",res_colnames)])
-  var2 <- sym(res_colnames[grepl("cases",res_colnames)])
-  prop_p <- ggplot(res_data, aes(x = !!var1, y = prob))  + geom_errorbar( aes(ymin = q05, ymax = q975, color = !!var2), position = position_dodge(0.3), width = 0.2) + geom_point(aes(color = !!var2), position = position_dodge(0.3)) + scale_color_manual(values = c("#00AFBB", "#E7B800",'#999999')) + theme_classic() + scale_x_discrete(labels = function(x) {stringr::str_wrap(x, width = 16)})
+  var1 <- sym(res_colnames[grepl("cases",res_colnames)])
+  var2 <- sym(res_colnames[grepl("_Cases",res_colnames)])
+  # browser()
+  # prop_p <- ggplot(res_data, aes(x = !!var1, y = prob))  + geom_errorbar( aes(ymin = q05, ymax = q975, color = !!var2), position = position_dodge(0.3), width = 0.2) + geom_point(aes(color = !!var2), position = position_dodge(0.3)) + scale_color_manual(values = c("#00AFBB", "#E7B800",'#999999')) + theme_classic() + scale_x_discrete(labels = function(x) {stringr::str_wrap(x, width = 16)})
+  prop_p <- ggplot(res_data, aes(x = !!var1, y = prob))  + geom_errorbar( aes(ymin = q05, ymax = q975, color = !!var2), position = position_dodge(0.3), width = 0.2) + geom_point(aes(color = !!var2), position = position_dodge(0.3)) + scale_color_manual(values = c("#CC0000", "#006600", "#669999", "#00CCCC", "#660099", "#CC0066", "#FF9999", "#FF9900", "black", "black", "black", "black", "black")) + theme_classic() + scale_x_discrete(labels = function(x) {stringr::str_wrap(x, width = 16)})
   res_list <- list()
   res_list[[1]] <- res_data
   res_list[[2]] <- prop_p
   return(res_list)
+}
+
+# Processing for Intrupted time sereis ----
+
+insertRow <- function(data, new_row, r) {
+  data_new <- rbind(data[1:r, ],            
+                    new_row,                
+                    data[- (1:r), ])
+  data_new <- as.data.frame(data_new)  
+  rownames(data_new) <- 1:nrow(data_new)
+  data_new <- as_tibble(data_new)
+  return(data_new)
 }
