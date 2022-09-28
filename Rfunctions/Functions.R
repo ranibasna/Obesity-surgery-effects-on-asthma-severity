@@ -407,7 +407,7 @@ get_ITS_data <- function(timeVis_data){
   ramp <- append(rep(0,49), seq(1,48,1))
   intrupted_df_agg$timeAfterSurg <- ramp 
   #
-  intrupted_df_agg <- intrupted_df_agg %>% mutate(step_change = case_when(numberMonth <= 0 ~ 0, numberMonth > 0 ~ 1))
+  intrupted_df_agg <- intrupted_df_agg %>% mutate(step_change = case_when(numberMonth <= 0 ~ 0, numberMonth > 0 ~ 1)) %>% mutate(step_change = as.integer(step_change))
   intrupted_df_agg <- intrupted_df_agg %>% mutate(predAvg = prednisolone/NumberPeople)
   return(intrupted_df_agg)
 }

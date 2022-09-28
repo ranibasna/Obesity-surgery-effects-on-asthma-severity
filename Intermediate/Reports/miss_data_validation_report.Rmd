@@ -1,0 +1,68 @@
+---
+title: "Processing data check"
+author: "Rani Basna"
+date: "31/01/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries}
+library(targets)
+```
+
+
+# visualization of the missing data patterns
+
+```{r OriginalData}
+#tar_load(imput_data)
+tar_load(Imputed_data)
+data_all_miss <- Imputed_data$data # this is the missing original data
+```
+
+```{r}
+colnames(data_all_miss)
+```
+
+
+```{r}
+p_missing_df <- unlist(lapply(data_all_miss, function(x) sum(is.na(x))))/nrow(data_all_miss)
+sort(p_missing_df[p_missing_df > 0], decreasing = TRUE)
+```
+
+```{r}
+vis_miss(data_all_miss, warn_large_data = FALSE)
+```
+
+```{r}
+gg_miss_upset(data_all_miss)
+```
+
+```{r}
+# missing cases
+gg_miss_case(data_all_miss)
+```
+
+
+```{r}
+gg_miss_fct(x = data_all_miss, fct = smoking5)
+```
+
+```{r}
+gg_miss_fct(x = data_all_miss, fct = ppi_xday)
+```
+
+
+```{r}
+explanatory =  c("waist", "smoking", "smoking5")
+dependent = "wght_loss1y"
+data_all_miss %>%  missing_pairs(dependent, explanatory)
+```
+
+
+
+
+

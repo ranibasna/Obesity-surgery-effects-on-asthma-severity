@@ -2,7 +2,7 @@
 library(targets)
 library(tarchetypes)
 source("Rfunctions/Functions.R")
-tar_option_set(packages = c("tidyverse","tibble","lubridate","mltools","stringi","data.table","mice","naniar","finalfit", "tidymodels","bnlearn","embed","visNetwork", "cowplot","ggplot2","brms","tidybayes","bayesplot"))
+tar_option_set(packages = c("tidyverse","tibble","lubridate","mltools","stringi","data.table","mice","naniar","finalfit", "tidymodels","bnlearn","embed","visNetwork", "cowplot","ggplot2","brms","tidybayes","bayesplot","bookdown","parameters"))
 list(
   #record state of R environment
   tar_target(lockenv,renv::snapshot()),
@@ -83,11 +83,9 @@ list(
                                           set_prior("normal(0,1)", class = "b", coef = "step_change"),
                                           set_prior("normal(0,1)", class = "b", coef = "timeAfterSurg"),
                                           set_prior("normal(5,5)", class = "Intercept")
-                                          # set_prior("uniform(-1,1)", class = "ar")
   )),
   tar_target(modelPoi_main, brms::brm(
-    NumberPeople ~ elapsed_time + step_change + timeAfterSurg + deathMonthAccCount + ar(p = 1),
-    # ppc_outcome ~ elapsed_time + step_change + timeAfterSurg ,
+    NumberPeople ~ elapsed_time + step_change + timeAfterSurg + ar(p = 1),
     data = ITS_data,
     family = poisson(),
     prior = prior_dis,

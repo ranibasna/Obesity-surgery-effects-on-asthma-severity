@@ -1,0 +1,569 @@
+---
+title: "Bayesian Analysis for the Obisity surgery association with asthma severity study"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+params:
+  BN_data: "BN_processed_data_inc"
+  BN_avg_dag_par: "BN_avg_dag_inc"
+  BN_fitted_par: "BN_fitted_obj_inc"
+  ITS_data_par: "ITS_data"
+  Brms_model_par: "brms_model"
+bibliography: ref.bib
+csl: 2d-materials.csl
+---
+
+
+<!-- output: -->
+<!--   html_notebook: -->
+<!--     theme: united -->
+<!--     highlight: tango -->
+<!--     toc: true -->
+<!--     toc_depth: 3 -->
+<!--     toc_float: true -->
+<!--     number_sections: true -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.width = 10)
+```
+
+
+```{r libraries}
+library(targets)
+```
+
+
+```{r}
+rep_num = 200000
+```
+
+
+# Bayesian Network
+
+### Introduction
+
+Classical Statistical models, such as regression, are widely used in deriving an inference from health data such as risk analysis.  In their essence, these models investigate the assumed association of one variable, usually called the dependent or the outcome variable, with a set of independent variables (they are also called the exposure variables). Once the model is trained, one can deduce the effect of the independent variables on the dependent variable in the form (add the name of these ratios) of risk, odds ratio.
+
+However, these classical statistical models suffer from some limitations. One of the most challenging problems that affect the efficiency of classical regression is the collinearity problem. (explain the collinear meaning). Collinearity means that some factors are (to a certain degree) predicted by a set of others since the dataset contains redundant information.
+Typically, in epidemiological, clinical, and biological data, the covariates structures are highly dependent, complex, and collinear. This is anticipated to the process that generates this data. As a consequence, these models have limited capacity to explain such inter-dependent multi-factorial relationships. Hence, the models fail to stabilize and infer a poor level of risk ratios. Several approaches can be used to identify the high redundant information issue, However, the instability remains as a result of the inherited collinearity. A high collinearity phenomenon among variables is very popular in epidemiology and airway disease data [e.g., (5)].
+
+Other advantages of the Bayesian network approaches include being a generative model, treatment of missing data, ability to encode nonlinear relationships between covariates, possibility to represent casual inference, modeling multiple outcome variables in one network @ramazi2021exploiting and @arora2019bayesian.
+
+Recently multiple studies have advised for incorporating a complex system approach to epidemiological and clinical phenomena instead of an isolated risk factor approach such as regression @arora2019bayesian. In the real life case, multiple factors interact to modify outcome appearance. Complex system approach can capture these hypothesized relationships. One such approach is the Bayesian Network model. Opposed to the regression model, Bayesian Network can reveal the co-effect of more than one covariate on the outcome variable making it possible to draw an inference about the modification effect of one variable on another. In addition, BN versatile approach to modelling a set of variables to uncover dependency structures within the data. Hence, it is possible to draw an inference about any variable rather than only the outcome variable as this is the case in linear regression models.
+
+Bayesian Networks are graphical probabilistic models. They represent the joint probability distribution of a set of random variables and describe the conditional dependencies @scutari2014bayesian. More formally, the BN consists of nodes and arcs whose nodes are the response variable and covariates, and the arcs between the nodes show how these nodes are related to each other. Formally this is known as directed acyclic graph (DAG) @pearl2014probabilistic. (Pearl, 1988). However, the direction of the arc does not necessarily imply causation, and the relationship between variables are often described as probabilistic instead of causal (Scutari and Denis, 2014). There are three ways to form the structure of the BN.
+
+1. Using expert knowledge or oracle.
+2. Using a mixture between data driven and an Oracle.
+3. Using solely data-driven structure learning.
+
+Once we are done forming the structure of BN, a second step will be to learn the parameters of the Network. Typically this is a data-driven approach.
+
+The last step is to make an inference on the BN. Usually, this can be done in the form of querying conditional probabilities of events. In other words the value of a specific variable (for instance the outcome of interest) can be assessed conditional on the value of a subset of variables (or one variable).
+
+The generated BN model is dynamic where the probability of all variables changes by changing the state of one variable and reveals the influences and interactions between the depicted variables.
+
+There are three types of Bayesian networks, depending on the types of the included variables, discrete, continuous, and mixed. In our setting, as have few discrete variables, we tested and compared two types, mixed Bayesian networks and discrete one. We picked the one with the better score (for details see below).
+
+### Data Preparation
+
+Before we go into using the Bayesian network modeling, we need to qualify our data. This includes two steps impute the missing data and discretize the continuous variables. In our data set, only the smoking variables have a good amount of missing data (smoking at baseline and smoking measured a year after). However, we have much less missingness concerning smoking after two and three years.  Two round of imputation is performed. In the first, we used an iterative logical imputation. For instance, if a patient reported that he was a non-smoker at the two and three years checks after the surgery with missing information for the smoking at the surgery. We just concluded the patient is a non-smoker at the surgery. In the second round, we use a tree-based method to impute the missing data. The tree-based approach generally has good accuracy, and stability, and does not impute values outside the bounds of the training data @kuhn2013introduction. Specifically, we used a bagged tree model constructed using the Tidymodel framework @TidyModels.  
+
+For us to compare with the discrete Bayesian network, we need to discretize our numerical variables. We used the XGBoost procedure inside the tidymodels R package. XGBoost is an optimized gradient boosting method designed to be highly efficient, and flexible. It implements machine learning algorithms under the Gradient Boosting framework. XGBoost can learn non-uniform intervals from numerical variables.
+
+### Bayesian Network structure
+
+To learn a stable, realistic optimal structure of the networks, we went through a few steps. As pointed out earlier, including expert knowledge is one way to induce building a sound close to a realistic structure. We use both blacklist and whitelist tools that are available at the bnlearn R package to include our prior knowledge. For instance, we only allowed the arcs of variables measured at different times (such as smoking, BMI, amount of medications, and the number of hospitalization) to take the direction from the earlier time towards the future time. As it makes more sense for the past values to influence the future values. We also, black-listed any arcs to influence some fixed variables such as age and sex. It is clear that no variable can influence gender.
+
+To reach an optimal structure we compared two structure learning methods, max-min hill-climbing, and Tabu search algorithm. We also applied these two learning methods in two scenarios. The first with the case of the mixed variable where the variables can be numerical and discrete. Second, the variables list only contains discrete variables. We utilized several scoring functions such as Bayesian Information Criteria (BIC) and Bayesian Dirichlet equivalent uniform (BDeu) to compare network structures with certain nodes and arcs contained or banned @scutari2014bayesian. 
+
+### Implementing the Bayesian Network for our scientific question
+
+In this approach we will be modeling the conditional probabilities. Mainly these probabilities estimate, will answer questions in the following format. What is the probability of an individual to consume more than $x$ amount of prednisolone (measured in mg) in the two years after the surgery given that he or she consumed less than $y$ amount. 
+
+To answer such questions or queries, we will define two new variables the accumulated amount for prednisolone for tow years before the surgery and the accumulated amount for prednisolone for tow years after the surgery. We will use these tow variable to assess how the probabilities of consuming different amount change before and after the surgery. This will gives us an indication of the effect of the surgery. 
+
+As usage of prednisolone is a numerical amount and for the sack of comparing with a categorical version of these variables, we trained another machine learning model (XGBoost) to find the best and the optimal number of cut points for the predinselone intake amount. This will result in ordered categorical variable. For example, the accumulated amount for prednisolone for tow years before the surgery may take values like very low, low, medium, heigh and very high. Similarly for the after the surgery new defined variable.
+
+After developing the model we will be able to incorporate more of the aformentioned conditional probabilistic queries. Namelly,, we can condition on a value of other specific variables and compare the estimated probabilities. For instance, what is the conditional probability of  accumulated amount for prednisolone for tow years before conditioned on that the gender is male. Other conditioning variables of interest are smoking status , surgery type, inclusion creteria, ... etc.  It is important to note that under this approach we are estimating probabilities at the individual level. 
+
+All the computational aspects of the Bayesian Network was done using the bnlearn package @scutari2009learning. A full reproducible environment was developed and can be accessed from the following GitHub page. (add the link Here). 
+
+The Bayesian network structure with mixed variables was learned using both tabu and hill-climbing algorithm. We used bic-cg score i.e the Bayesian Information Criterion score for mixed datasets. While a BIC was used to evaluate the use of the discrete Bayesian network. We conducted a bootstrap aggregation and model averaging to reduce the number of arcs that are incorrectly included in the network structure. Our data-derived DAG is shown in Figure ?. Then, we fitted the BN model to learn the related parameters. Finally, we estimated the conditional probabilities by eliciting a sample of realizations of the modeled variables under specific conditions. We validated our model by (1) running a cross-validation approach, and (2) simulating new data and comparing its statistical characteristics with the original data. 
+
+<!-- In Figure ?, the blue nodes represent the confounders variables, the rose nodes represent the airway obstructive outcomes, the red nodes represent the socioeconomic variables, the green nodes represent smoking exposure. (the colors need to be correct ) -->
+
+Formally, let us assume that $X={X_1, …, X_n}$ represent the selected variables (nodes) of the BN. If the arc is going from Xi to $X_i+1$, we define $X_i$ as the parent node and $X_i+1$ as the child node. We seek to find the Conditional Probability distribution to quantify the probabilistic relationships between parent and child nodes. The global posterior distribution of X in the view of the BNs model can be factorized according to a specified/resulted directed acyclic graph (arc direction in the Network) as in the following equation:
+\begin{equation}
+P(X_1, …,X_n) = P(X_1)P(X_2|X_1)...P(Xn|X_1,X_2,...,X_n) = \prod_1^n P(X_i|X_i)
+\end{equation}
+
+Where $\prod(X_i)$ refers to the set of the Xi's parent nodes $\prod(X_i) \in {Xi, …, X_{n-1}}$, and $P(X_i|X_j)$ is the conditional probability of $x_i$ given $X_j$.  
+
+In addition, the learned Network structure can then be utilized for aforementioned inference by querying the Bayesian network @scutari2014bayesian. The inference on a specific variable (outcome) is reached by computing the conditional probability conditional on the state of a subset of nodes (variable). When the value of one variable changes, conditional probability distributions of both parent and child nodes are also modified. 
+
+In our case, the discrete Bayesian network was prefered over the mixed variables one. One reason for that is the skweness in the distribution of some of the numerical variables. As a consequence, we decided to test the discretization of some variables to accommodate the skewness. Since the variables in the BN represent levels (consumption levels, number of hospitalisation, number of emergency visits), it is intuitively appealing to discretise them few levels.
+
+
+To compute conditional probabilities of interest we used the approximate inference. Specifically, we conduct an important sampling method called likelihood weighting. We used the implementation of this method that exists in the bnlearn package. However, due to the approximate nature of these queries, we repeated the processes 200000 times for each query. We then used these samples to calculate the 95% credible interval of the probability of an outcome. The 95% credible interval of a probability of event represents a 95% chance that the probability of the given event will fall between the upper and lower limits of the interval (26, 28).
+
+```{r}
+plot.network(params$BN_avg_dag_par, ht = "1000px")
+```
+
+
+# Valdation {.tabset}
+
+## Original vs Simulated
+
+```{r}
+gg_obj <- sim_validation(fitted_BN_obj =  params$BN_fitted_par, BN_ready_data = params$BN_data, n_pop = 6598)
+gg_list <- gg_obj
+plot_grid(gg_list[[1]], gg_list[[2]], gg_list[[3]], gg_list[[4]], gg_list[[5]], gg_list[[6]], nrow = 2, ncol = 3)
+```
+
+## Original vs Simulated 2
+
+```{r}
+plot_grid(gg_list[[7]], gg_list[[8]], gg_list[[9]], gg_list[[10]], gg_list[[11]], gg_list[[12]], nrow = 2, ncol = 3)
+```
+
+
+# Conditional Probability Distributions for effect of prednisolone var {.tabset}
+
+##  medication and effect modification: the inclusion
+
+Probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+
+```{r, warning=FALSE, message=FALSE}
+rep_num <- 10000
+effe_modif_vars <- colnames(params$BN_data %>% select(starts_with(c("inc", "y_acc_b"))))
+# get the cp for the probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+prop_y_acc <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars, outcome = "y_acc_a", state = "1", model = params$BN_fitted_par, repeats = rep_num)
+# get the plot
+prop_smok_gender_p <- get_cpq_plot(res_data = prop_y_acc, effe_modif_vars = effe_modif_vars, original_raw_data = params$BN_data, final_data = params$BN_data)
+prop_smok_gender_p[[2]]
+```
+
+##  medication and effect modification: the sex
+
+Probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and sex before the surgery
+
+```{r, warning=FALSE, message=FALSE}
+rep_num <- 10000
+effe_modif_vars <- colnames(params$BN_data %>% select(starts_with(c("sex", "y_acc_b"))))
+# get the cp for the probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+prop_y_acc <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars, outcome = "y_acc_a", state = "1", model = params$BN_fitted_par, repeats = rep_num)
+# get the plot
+prop_smok_gender_p <- get_cpq_plot(res_data = prop_y_acc, effe_modif_vars = effe_modif_vars, original_raw_data = params$BN_data, final_data = params$BN_data)
+prop_smok_gender_p[[2]]
+```
+
+##  medication and effect modification: the surgery
+
+Probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and surgery before the surgery
+
+```{r, warning=FALSE, message=FALSE}
+rep_num <- 10000
+effe_modif_vars <- colnames(params$BN_data %>% select(starts_with(c("sur", "y_acc_b"))))
+# get the cp for the probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+prop_y_acc <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars, outcome = "y_acc_a", state = "1", model = params$BN_fitted_par, repeats = rep_num)
+# get the plot
+prop_smok_gender_p <- get_cpq_plot(res_data = prop_y_acc, effe_modif_vars = effe_modif_vars, original_raw_data = params$BN_data, final_data = params$BN_data)
+prop_smok_gender_p[[2]]
+```
+
+# Conditional Probability Distributions for effect of hospitalization var {.tabset}
+
+
+##  medication and effect modification: the inclusion
+
+Probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+
+```{r, warning=FALSE, message=FALSE}
+rep_num <- 10000
+effe_modif_vars <- colnames(params$BN_data %>% select(starts_with(c("inc", "hos_acc_b"))))
+# get the cp for the probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+prop_y_acc <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars, outcome = "hos_acc_a", state = "Better", model = params$BN_fitted_par, repeats = rep_num)
+# get the plot
+prop_smok_gender_p <- get_cpq_plot(res_data = prop_y_acc, effe_modif_vars = effe_modif_vars, original_raw_data = params$BN_data, final_data = params$BN_data)
+prop_smok_gender_p[[2]]
+```
+
+##  medication and effect modification: the sex
+
+Probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+
+```{r, warning=FALSE, message=FALSE}
+rep_num <- 10000
+effe_modif_vars <- colnames(params$BN_data %>% select(starts_with(c("sex", "hos_acc_b"))))
+# get the cp for the probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+prop_y_acc <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars, outcome = "hos_acc_a", state = "Better", model = params$BN_fitted_par, repeats = rep_num)
+# get the plot
+prop_smok_gender_p <- get_cpq_plot(res_data = prop_y_acc, effe_modif_vars = effe_modif_vars, original_raw_data = params$BN_data, final_data = params$BN_data)
+prop_smok_gender_p[[2]]
+```
+
+##  medication and effect modification: the surgery
+
+Probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+
+```{r, warning=FALSE, message=FALSE}
+rep_num <- 10000
+effe_modif_vars <- colnames(params$BN_data %>% select(starts_with(c("sur", "hos_acc_b"))))
+# get the cp for the probability of consuming level 1 mg of prednisolone after the surgery conditioned on all levels of prednisolone and inclusion before the surgery
+prop_y_acc <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars, outcome = "hos_acc_a", state = "Better", model = params$BN_fitted_par, repeats = rep_num)
+# get the plot
+prop_smok_gender_p <- get_cpq_plot(res_data = prop_y_acc, effe_modif_vars = effe_modif_vars, original_raw_data = params$BN_data, final_data = params$BN_data)
+prop_smok_gender_p[[2]]
+```
+
+
+
+
+
+
+
+
+
+
+<!-- ## table -->
+<!-- ```{r} -->
+<!-- prop_smok_gender_p[[1]] -->
+<!-- ``` -->
+
+<!-- ## hospitalization value meduim -->
+<!-- ```{r} -->
+<!-- effe_modif_vars_smoking_only <-  colnames(params$BN_data %>% select(smoking)) -->
+<!-- prop_smoking_only <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars_smoking_only, outcome = "hos_Diff", state = "med", model = params$BN_avg_dag_par, repeats = rep_num) -->
+<!-- # get plot -->
+<!-- prop_smoking_only_p <- get_cpq_plot_one_var(res_data = prop_smoking_only, effe_modif_vars = effe_modif_vars_smoking_only, original_raw_data = as.data.frame(params$BN_data), final_data = params$BN_data) -->
+<!-- prop_smoking_only_p[[2]] -->
+<!-- ``` -->
+
+<!-- ## table -->
+<!-- ```{r} -->
+<!-- prop_smoking_only_p[[1]] -->
+<!-- ``` -->
+
+
+<!-- # Conditional Probability Distributions for effect modification of gender var with smoking {.tabset} -->
+
+<!-- ## Gender with smoking at hospitalization med -->
+
+<!-- ```{r} -->
+<!-- effe_modif_vars_smok_gender <- colnames(params$BN_data %>% select(smoking, sex)) -->
+<!-- # get the cp -->
+<!-- prop_smok_gender <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars_smok_gender, outcome = "hos_Diff", state = "med", model = params$BN_avg_dag_par, repeats = rep_num) -->
+<!-- # get the plot -->
+<!-- prop_smok_gender_p <- get_cpq_plot(res_data = prop_smok_gender, effe_modif_vars = effe_modif_vars_smok_gender, original_raw_data = as.data.frame(params$BN_data), final_data = params$BN_data) -->
+<!-- prop_smok_gender_p -->
+<!-- ``` -->
+
+
+<!-- ## Gender with smoking at hospitalization light -->
+
+<!-- ```{r} -->
+<!-- effe_modif_vars_smok_gender <- colnames(params$BN_data %>% select(smoking, sex)) -->
+<!-- # get the cp -->
+<!-- prop_smok_gender <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars_smok_gender, outcome = "hos_Diff", state = "light", model = params$BN_avg_dag_par, repeats = rep_num) -->
+<!-- # get the plot -->
+<!-- prop_smok_gender_p <- get_cpq_plot(res_data = prop_smok_gender, effe_modif_vars = effe_modif_vars_smok_gender, original_raw_data = as.data.frame(params$BN_data), final_data = params$BN_data) -->
+<!-- prop_smok_gender_p -->
+<!-- ``` -->
+
+<!-- # Conditional Probability Distributions for effect of surgery type on hospitalisation {.tabset} -->
+
+<!-- ## surgery type at hospitalization med -->
+
+<!-- ```{r} -->
+<!-- effe_modif_vars_surgery <-  colnames(params$BN_data %>% select(surgery)) -->
+<!-- prop_surgery <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars_surgery, outcome = "hos_Diff", state = "Bad", model = params$BN_avg_dag_par, repeats = rep_num) -->
+<!-- # get plot -->
+<!-- prop_surgery_hos_med <- get_cpq_plot_one_var(res_data = prop_surgery, effe_modif_vars = effe_modif_vars_surgery, original_raw_data = as.data.frame(params$BN_data), final_data = params$BN_data) -->
+<!-- prop_surgery_hos_med[[2]] -->
+<!-- ``` -->
+
+<!-- ## table -->
+<!-- ```{r} -->
+<!-- prop_surgery_hos_med[[1]] -->
+<!-- ``` -->
+
+<!-- ## surgery type at hospitalization light -->
+
+<!-- ```{r} -->
+<!-- effe_modif_vars_surgery <-  colnames(params$BN_data %>% select(surgery)) -->
+<!-- prop_surgery <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars_surgery, outcome = "hos_Diff", state = "Bad", model = params$BN_avg_dag_par, repeats = rep_num) -->
+<!-- # get plot -->
+<!-- prop_surgery_hos_light <- get_cpq_plot_one_var(res_data = prop_surgery, effe_modif_vars = effe_modif_vars_surgery, original_raw_data = as.data.frame(params$BN_data), final_data = params$BN_data) -->
+<!-- prop_surgery_hos_light[[2]] -->
+<!-- ``` -->
+
+<!-- ## table -->
+<!-- ```{r} -->
+<!-- prop_surgery_hos_light[[1]] -->
+<!-- ``` -->
+
+
+
+<!-- ## surgery type at hospitalization Better -->
+
+<!-- ```{r} -->
+<!-- effe_modif_vars_surgery <-  colnames(params$BN_data %>% select(surgery)) -->
+<!-- prop_surgery <- cpq_effe_modif(.data = params$BN_data, vars = effe_modif_vars_surgery, outcome = "hos_Diff", state = "Better", model = params$BN_avg_dag_par, repeats = rep_num) -->
+<!-- # get plot -->
+<!-- prop_surgery_hos_light <- get_cpq_plot_one_var(res_data = prop_surgery, effe_modif_vars = effe_modif_vars_surgery, original_raw_data = as.data.frame(params$BN_data), final_data = params$BN_data) -->
+<!-- prop_surgery_hos_light[[2]] -->
+<!-- ``` -->
+
+<!-- ## table -->
+<!-- ```{r} -->
+<!-- prop_surgery_hos_light[[1]] -->
+<!-- ``` -->
+
+# Intruppted time series analysis
+
+Under this approach, we will be processing the data in order to engineer a new set of variables that represent population level. For example, we will derive values for amount of prednisolone that being consumed by the population at every month starting from 4 years before the surgery and up until 4 years after the surgery. We will as well conduct similar processing to exclude variables about the number of people taking medication as well as number of packages being prescribed for each month 4 years before and after the surgery. After the new variable engineering is done, we end up with a time series data format that are represent measured values at the population level of amount of prednisolone and number of medication packages of the population before and after the surgery. The surgery can be seen as an intervention. Hence, we can use a set of statistical modeling tools that are developed for such setting. 
+
+This data type is referred to before-after time series under which there are a type of intervention that been applied at some point in time. 
+
+Many before and after methodological approaches exist to quantify the effect of a population-level intervention. One important challenge is when the observational study does not measure the underlying short and long-term. This usually leads to biased results. However, interrupted time series (ITS) analysis offers a robust quasi-experimental design to assess the longitudinal impacts of such interventions.  It does that by temporally monitoring the outcome before and after an intervention. ITS is considered one of the best approaches for demonstrating causality when randomized controlled trials (RCTs) are neither feasible nor ethical.
+
+A primary advantage of this design is its capability to differentiate the effect of the intervention from other changes caused by non-measured confounding influences that vary temporally, that is, change that would have happened even in the absence of the intervention. Estimating the intervention effect is accomplished by comparing the estimated trend in the target variable after the intervention time to the already existing estimated trend in the pre-intervention time.
+
+Few approaches are proposed to model the ITS modeling framework. Some of the most famous ones are Difference-in-Difference @saeed2019evaluating, Segmented regression analysis @wagner2002segmented and Autoregressive Integrated Moving Average (ARIMA) model @nelson1998time. The data needs to be collected at equally spaced time points. Here we will be. using the segmented regression approach. The motivation for such a choice depends on the way we want to address the multiple modeling issues in our data. Issues such as how we want to deal with the trend type (linear or not linear), seasonality, autocorrelation (specifically autocorrelation of the residuals i.e being not independently distributed). 
+
+
+## Trend and variance and Seasonality
+
+Using the plot of the prednisolone amount we can see that the trend is approximately linear in both before and after the surgery. However, the slope of the trend is different. Also, we notice that the slope level has changed from before the surgery to after the surgery. It is also worth to note that the slope from  before has slightly change right before the surgery. This can be attributed to the guidelines given to patients for the some period before the surgery as reducing wights. Since we concluded that our data can be modeled with a linear model, no other functional forms is needed for the regression. When linearity is an issue other functional forms may be employed such as splines. Also, we can see from the plots that variance is not changing dramatically. Hence we will not incorporate any transformation on the data. For the seasonality, because of the way we extracted the data probably seasonality is not an issue here.
+
+## Autocorrelation
+
+A main assumption in the regression analysis is that error terms (that is the difference between the real values and the predicted ones) associated with each observation are uncorrelated. However, time series observations are often correlated with observations at previous time points and are thus not independently distributed. 
+
+This is because consecutive health observations (or other phenomena) at two-time points that are close to each other tend to be more similar to one another than observations at two-time points further apart, resulting in the autocorrelation of the error terms. Correlation between neighboring data points is called first-order autocorrelation. A further modification is usually needed to account for autocorrelation. In our case using the autocorrelation function and partial autocorrelation function. In addition to the following tests we conclude that our data exhibts an autocorrelation of the first order. To account for that we will accommodate this lack of independence by fitting a model that incorporates an AR(1) variance-covariance structure.  
+
+
+Depending on the above arguments, we decide to use the Segmented Regression analysis to model our interrupted time series data. 
+
+
+
+## Segmented Regression Analysis
+
+As stated before, we will use the segmented regression paradigm to attach the interrupted time series data that we have. The segmented regression model can be represented in the following model. 
+
+\begin{equation}
+    Y_t = \beta_0 + \beta_1 * time + \beta_2 * intervention + \beta_3 * time since intervention + \epsilon
+    (\#eq:SegReg)
+\end{equation}
+
+- $\beta_0$: represent estimates the baseline level of the outcome, mean amount of prednisolone for all patients per month, at time zero; 
+- $\beta_1$ (elapsed_time): estimates the change in the mean amount of prednisolone for all patients that occurs with each month before the intervention (i.e. the baseline trend);
+- $\beta_2$ (step_change/intervention) estimates the level change in the mean monthly amount of prednisolone for all patients immediately after the intervention, that is, from the end of the preceding segment.
+- $\beta_3$ (timmeAfterSurg): estimates the change in the trend in the mean monthly amount of prednisolone for all patients after the surgery, compared with the monthly trend before the surgery. The sum of $\beta_1$ and β3 is the post-intervention slope. 
+
+- Using the model described in equation \@ref(eq:SegReg) to estimate level and trend changes associated with the intervention, we control for baseline level and trend, a major strength of segmented regression analysis as pointed above. 
+- The error term $\epsilon$ at time t represents the random variability not explained by the model. It consists of a normally distributed random error and an error term at time t that may be correlated to errors at preceding or subsequent time points.
+
+
+## Bayesian Segmented Regression Model
+
+- Motivate the use of the Bayesian modelling
+
+In order to allow for probabilistic interpretation of the effect estimate of the intervention we will employ Bayesian segmented regression approach. Bayesian modeling is well known for providing an  appealing interpretation. In addition, Bayesian frameworks allow for experts to incorporate their prior knowledge into the model.
+
+
+### Linear regression Model
+
+Let us summarize our assumptions:
+
+ 1. There is a baseline value of the amount of consumed of Prednisolone by our population study $\beta_0$. 
+ 2. As time pass,  (and we approaching the surgery time) the amount of Prednisolone is increased lineary (the more the severity of the asthma reflected by an increase amount of medication usage).
+ 3. There is some variation around the mean amount of medication consumption. This is represented by the variance $\sigma$.  
+ 4. We assume that $\sigma$ is normally distributed.
+ 5. There is an intervention the surgery). This is represented by a binary variable.
+ 6. As a consequence of the surgery, there is a change in the trend. That is the way the mean value consumption evolve over the time. This can be represented as interaction between time and the intervention variable.
+ 7. There is an auto-regressive correlation dependency structure.
+
+We model the above assumptions in the following generative model
+
+\begin{align}
+    &Y_t \sim \mathcal{N}(\mu,  \sigma)\\
+    &\mu = \beta_0 + \beta_1 * \mbox{time} + \beta_2 * \mbox{intervention} + \beta_3 * \mbox{time since intervention}\\
+    &\beta_0 \sim \mathcal{N}(60000,5000)\\
+    &\beta_1 \sim \mathcal{N}(0,100)\\
+    &\beta_2 \sim \mathcal{N}(- 20000,25000)\\
+    &\beta_3 \sim \mathcal{N}(0,500)\\
+    &\sigma \sim \mathcal{N}(5000,1000)
+     (\#eq:SegRegBay)
+\end{align}
+
+### Poisson regression Model for the number of packages
+
+
+
+Poisson Regression models, a specific instance of the class of generalized linear models (GLMs), are best used for modeling events where the outcomes are counts. Count outcomes are non-negative discrete integers. It is important to note in GLM, we’re modeling the mean of the outcome, $\mu$. Therefore, we need to make sure $\mu$ is non-negative, so we need a link function that can map $\mu$ from the whole real line to non-negative numbers; by far the most commonly used link function is the logarithmic transformation,
+
+In contrast to the normal or ‘Gaussian’ distribution, which has two parameters (a mean $\mu$  and a standard deviation $\sigma$), the Poisson distribution has only one parameter, $\lambda$. This parameter specifies the mean and variation of a count process. $\lambda$ can be thought of as being analogous to the mean of the normal distribution, as it describes the mean number of occurrences of discrete events. So, the mean of any variable for which a researcher is counting discrete units (e.g., words, sentences, grammatical markers, gestures, and so on) is principally amenable to being modeled in terms of the parameter $\lambda$.
+
+Another way we can model estimate the effect of the surgery on the population is by conducting a poisson regression on the count of the packages being consumed before and after the intervention.  
+
+### Prior distributions
+
+For deciding our priors,  we will follow a sensitivity analysis approach as recommended by ... We will set four different priors on the step change (i.e the effect of the intervention). 
+
+ 1. One flat prior, probably uniform or normal with bigger sd.
+ 2. a weak informative prior (in this case the prior will try to exclude extreme cases). Specifically, we will choose a centered normal distribution with $SD = 1$. that is 68% of the step change value will land between $[-1,1]$ (one standard deviation away from a zero difference), and 95% would fall in between the interval $[−2, +2]$ (two standard deviations away from the mean).
+It is important to realize here that this is the prior of the step change (intervention effect), which in this case is the difference between before and after conditions on the log scale. So, a normally distributed prior with $SD = 1$ means that the model assigns high probability $(0.95)$ to differences ranging from $−2$ to $+2$ on a log scale. This prior specification correspondingly assigns low probabilities to very large differences exceeding this range. 
+
+  3. Principled priors: In this setting we will test a more informative prior that put more density under the hypothesis that the intervention has an positive effect in reducing the number of medical packages being consumed as a result of the obesity surgery. Here we can as well test two different principled priors. One that put
+    a. A normal distribution with mean value $-0.5$ and standard deviation $1$. That is there is a $68%$ probability that the multiplicative effect between before and after the surgery is varying between $[-1.5,0.5]$. To get an understanding, at the raw scale, this means there is $68%$ probability that the $\beta_2$ parameter will fall between $\exp{-1.5} = 0.1826835$ (meaning that the expected number of medical packages after the surgery will be approximately $1-0.18=0.92$ times smaller than before the surgery) and $\exp{0.5}=1.648721$ (meaning that the expected number of medical packages after the surgery will be approximately $0.1.6$ times bigger than before the surgery).
+    b. A more informative prior may also be used, where we impose a stricter positive effect of the hypothesis. That is enforce the prior to cover only the negative values for the step change parameter (meaning that the obesity surgery will have a only reduction effect).   
+
+
+### Rate and offset variables
+
+We will be test of using the tow variables to measure the changes during the time of years before and after the surgery. This is the percentage of the genders and the average age of the groups (one can also include the number of people that are died and the number of people that not taking medications although the last one is not very efficient in our case as the total number  of the population is big (around 6000) under much many do not buy the meds in every month). However, an important fact to remember this only for the groups that are exposed to the medications and does not include people that died or people that are stopped taking medications. This is essentially why we are counting the average number of packages for the whole population (regardless of the number of completely recovered patients) and not the average number of packages for one patient only.
+
+Another important note, is that the population is not followed as how time pass. instead we are processing the data and center the time around the surgery. hence, the age of the population is growing but in the time dimension of our processed data. Hence, it is probably not very useful to include the age of the people as a offset variable.  
+
+### asses over-dispertion
+
+In this part we will use the loo approach (leave-one-out) to evaluate and compere if switching to negative binomial regression model helps (that is we have enough over dispersion in our data so that it worth using the negative binomial model instead of the poisson one)
+
+
+## Parameter estimation
+
+```{r}
+params$Brms_model_par %>% gather_draws(b_Intercept, b_elapsed_time, b_timeAfterSurg, b_step_change, sderr) %>% median_qi()
+```
+
+```{r}
+parameters::model_parameters(params$Brms_model_par)
+```
+
+- meaning that the expected number of medical packages after the surgery will be approximately $exp(-0.588) \approx 0.55$ times smaller than before the surgery.
+
+
+```{r}
+params$Brms_model_par %>%
+  tidybayes::gather_draws(
+    b_step_change, b_elapsed_time, b_timeAfterSurg
+    ) %>%
+  dplyr::mutate(
+    .variable = factor(
+      .variable, 
+      levels = c("b_step_change", "b_elapsed_time", "b_timeAfterSurg"), 
+      ordered = TRUE
+      )
+    ) %>%
+  dplyr::rename(value = .value) %>%
+  ggplot2::ggplot(
+    aes(x = value)
+    ) +
+  ggplot2::geom_density(
+    fill = "lightblue"
+  ) +
+  ggplot2::facet_wrap(
+    ~.variable,
+    scales = "free",
+    nrow = 1
+    ) +
+  ggplot2::labs(
+    title = "Posterior distributions of selected parameters of the modelPredn"
+    )
+```
+
+
+## Posterior predictive checks
+
+```{r PPCheck}
+# investigating modelPredn fit
+
+# specifying the number of samples
+nsamples = 100
+
+brms::pp_check(
+  params$Brms_model_par, 
+  ndraws = nsamples
+  ) + 
+  ggplot2::labs(
+    title = stringr::str_glue("Posterior predictive checks for modelPoi (using {nsamples} samples)")
+  )
+```
+
+```{r}
+color_scheme_set("purple")
+
+ppc_intervals(
+  y = params$ITS_data_par$NumberPeople,
+  yrep = posterior_predict(params$Brms_model_par),
+  x = params$ITS_data_par$numberMonth,
+  prob = 0.5
+) +
+  labs(
+    x = "time (months before and after the surgery)",
+    y = "Number of consumed packages",
+    title = "50% posterior predictive intervals \nvs Number of patients taking meds",
+    subtitle = "by months to and from the surgery"
+  ) +
+  panel_bg(fill = "gray95", color = NA) +
+  grid_lines(color = "white")
+```
+
+### median value sampling
+
+```{r, warning=FALSE, message=FALSE}
+# also works nicely with piping
+bayesplot::color_scheme_set("brightblue")
+params$Brms_model_par %>%
+  posterior_predict(draws = 500) %>%
+bayesplot::ppc_stat_grouped(y = params$ITS_data_par$NumberPeople,
+                   group = params$ITS_data_par$sergury_state,
+                   stat = "median")
+```
+
+### max vallue sampling
+
+```{r, warning=FALSE, message=FALSE}
+y <- params$ITS_data_par$NumberPeople
+yrep_poisson <- posterior_predict(params$Brms_model_par, draws = 500)
+#
+bayesplot::ppc_stat_grouped(y = y, yrep = yrep_poisson,
+                   group = params$ITS_data_par$sergury_state, stat = "max")
+```
+
+
+## Conditional Effects
+
+
+
+```{r, warning=FALSE}
+plot(brms::conditional_effects(params$Brms_model_par), ask = FALSE)
+```
+
+## Hypothesis testing
+
+```{r}
+brms::hypothesis(
+  params$Brms_model_par,
+  "step_change < -0.5",
+  seed = 12345
+  )
+```
+
+We can see that Bayes factor (Evid.Ratio in the table below) has value of 36.6 which indicates strong evidence in favor of our hypothesis, in terms of Harold Jeffreys’ scale for interpretation of Bayes factors. Specifically it means that under the fitted model for model the hypothesis about surgery effect being lower than - 0.5 is 36.9 times more probable than under the null model. In other words, the data should shift/shrink our believe pretty strongly in direction of acceptance of the existence of surgery positive effect on asthma medication take in.
+
+```{r}
+plot(
+  brms::hypothesis(
+    params$Brms_model_par,
+    "step_change < -0.5"
+  )
+)
+```
